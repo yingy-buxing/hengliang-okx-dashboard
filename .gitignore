@@ -1,0 +1,22 @@
+.account-data/
+__pycache__/
+.DS_Store
+api.rtf
+
+# 私有账户记录、导出及本机验收材料
+.okx*/
+account-report/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.rtf
+*.zip
+*.csv
+.env
+.env.*
+!.env.example
+account-dashboard/*.jpg
+account-dashboard/*.png
+account-dashboard/网站检查报告.md
+account-dashboard/完成度复评-*.md
+account-dashboard/本轮完善记录.md

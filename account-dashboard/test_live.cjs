@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const N=require('./public/numbers.js');
+assert.equal(N.rollingDigits('9.99','10.00').map(d=>d.next).join(''),'10.00');
+assert.equal(N.rollingDigits('-0.02','0.01').map(d=>d.next).join(''),'0.01');
+assert.ok(N.rollingDigits('28.50','28.50').every(d=>!d.changed));
+assert.equal(N.rollingDigits('28.50','28.51').filter(d=>d.changed).length,1);
+const source=fs.readFileSync(__dirname+'/public/app.js','utf8'),block=source.slice(source.indexOf('const SNAPSHOT_INTERVAL='),source.indexOf('function updateMetrics('));
+let now=0,id=0,pending=new Map(),calls=0,reject=false,hold=null;
+const context={Date:{now:()=>now},state:{connected:true,status:'ready',snapshot:{equity:10}},demoMode:false,busy:false,document:{hidden:false,addEventListener(){}},setTimeout:(fn,delay)=>{pending.set(++id,{fn,delay});return id;},clearTimeout:timer=>pending.delete(timer),render(){},async sync(){},async request(path){assert.equal(path,'/api/refresh');calls++;if(reject)throw Error('offline');if(hold)await hold;}};
+vm.createContext(context);vm.runInContext(block,context);
+(async()=>{
+ vm.runInContext('scheduleSnapshot()',context);assert.equal([...pending.values()][0].delay,30000);
+ context.document.hidden=true;vm.runInContext('scheduleSnapshot()',context);assert.equal(pending.size,0);await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(calls,0);
+ context.document.hidden=false;context.busy=true;await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(calls,0);
+ context.busy=false;context.state.status='running';await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(calls,0);
+ context.state.status='ready';now=30000;let release;hold=new Promise(resolve=>release=resolve);const first=vm.runInContext('autoRefreshSnapshot()',context);await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(calls,1);release();await first;hold=null;
+ reject=true;now=60000;await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(vm.runInContext('snapshotError',context),true);assert.equal(context.state.snapshot.equity,10);assert.equal([...pending.values()][0].delay,30000);
+ reject=false;now=90000;await vm.runInContext('autoRefreshSnapshot()',context);assert.equal(vm.runInContext('snapshotError',context),false);
+ context.state.connected=false;vm.runInContext('scheduleSnapshot()',context);assert.equal(pending.size,0);
+ console.log('金额进位、负数和不变值；快照定时、后台暂停、历史同步避让、并发保护、失败重试及断开停止检查通过');
+})().catch(e=>{console.error(e);process.exitCode=1;});

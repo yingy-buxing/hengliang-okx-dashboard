@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const {format,precise,contributions}=require('./public/numbers.js');
+assert.equal(precise('0.003'), '0.003');
+assert.equal(precise('0.00012'), '0.00012');
+assert.equal(precise('0.000000000739'), '0.000000000739');
+assert.equal(format(0), '0.00');
+assert.equal(precise(0), '0');
+assert.equal(format(null), '—');
+assert.equal(precise(''), '—');
+assert.equal(format(.003), '0.003');
+assert.equal(precise('0.123456789012'), '0.123456789012');
+const rows=Array.from({length:12},(_,i)=>({'合约':'COIN'+i,'期间净盈亏':i+1}));
+rows.push({'合约':'最大亏损','期间净盈亏':-100});
+const shown=contributions(rows);
+assert.equal(shown[0]['合约'],'最大亏损');
+assert.equal(shown.length,9);
+assert.equal(shown.reduce((n,r)=>n+r['期间净盈亏'],0),rows.reduce((n,r)=>n+r['期间净盈亏'],0));
+assert.equal(rows[0]['合约'],'COIN0');
+assert.deepEqual(contributions([]),[]);
+console.log('数字精度、零值与未知值、亏损覆盖和贡献图合计检查通过。');
+
+const R=require('./public/numbers.js').roundStats;
+const review=R([{平仓时间:'1',净盈亏:-2,持仓小时:1},{平仓时间:'2',净盈亏:-4,持仓小时:3},{平仓时间:'3',净盈亏:5,持仓小时:2},{平仓时间:'4',净盈亏:-99,跨期:true}]);
+assert.equal(review.count,3);assert.equal(review.maxLossStreak,2);assert.equal(review.averageLoss,-3);assert.equal(review.averageHours,2);assert.equal(R([]).winRate,null);
+console.log('轮次跨期排除、平均盈亏与持仓、连续亏损和无样本检查通过');
